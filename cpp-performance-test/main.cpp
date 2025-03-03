@@ -7,7 +7,11 @@
 #include <string>
 #include <sstream>
 #include <unordered_map>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 #include "json_parser.hpp"
+#include <queue>
 
 struct HttpRequest {
     std::string method;
@@ -228,6 +232,70 @@ inline static void BenchmarkParseJson(benchmark::State& state) {
     }
 }
 
+const int NUM_WORKERS = 4;
+const int NUM_TASKS = 250000;
+
+inline int workerPoolProcessing() {
+    std::queue<int> taskQueue;
+    std::vector<int> results;
+    std::mutex queueMutex, resultsMutex;
+    std::condition_variable condition;
+    bool done = false;
+
+    auto worker = [&](int id) {
+        while (true) {
+            int task;
+            {
+                std::unique_lock<std::mutex> lock(queueMutex);
+                condition.wait(lock, [&] { return !taskQueue.empty() || done; });
+
+                if (done && taskQueue.empty())
+                    break;
+
+                task = taskQueue.front();
+                taskQueue.pop();
+            }
+
+            int result = task * task;
+            {
+                std::lock_guard<std::mutex> lock(resultsMutex);
+                results.push_back(result);
+            }
+        }
+    };
+
+    std::vector<std::thread> threads;
+    for (int i = 0; i < NUM_WORKERS; ++i) {
+        threads.emplace_back(worker, i);
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        for (int i = 0; i < NUM_TASKS; ++i) {
+            taskQueue.push(i);
+        }
+    }
+    condition.notify_all();
+
+    {
+        std::lock_guard<std::mutex> lock(queueMutex);
+        done = true;
+    }
+    condition.notify_all();
+
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    return 0;
+}
+
+inline static void BenchmarkWorkerPoolProcessing(benchmark::State& state) {
+    for (auto _ : state) {
+        workerPoolProcessing();
+    }
+}
+
 BENCHMARK(BasicSort)->Arg(20); 
 BENCHMARK_CAPTURE(closure_operation, test, 20);
 BENCHMARK_CAPTURE(memory_allocation_and_management, test, 20);
@@ -235,4 +303,5 @@ BENCHMARK_CAPTURE(iterators, test, 20);
 BENCHMARK(BenchmarkParseHttpRequest)->Arg(20);
 BENCHMARK(BenchmarkParseHttpRequestOptimized)->Arg(20);
 BENCHMARK(BenchmarkParseJson)->Arg(20);
+BENCHMARK(BenchmarkWorkerPoolProcessing);
 BENCHMARK_MAIN();

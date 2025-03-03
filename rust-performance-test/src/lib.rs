@@ -1,5 +1,5 @@
 pub mod json_parser;
-use std::collections::HashMap;
+use std::{collections::{HashMap, VecDeque}, sync::{Arc, Condvar, Mutex}, thread};
 use rand::Rng;
 
 #[derive(Debug)]
@@ -119,4 +119,72 @@ pub fn iterators(n: usize) {
     let mut data: Vec<i32> = vec![1; n];
     
     data.iter_mut().for_each(|x| *x += 1);
+}
+
+const NUM_WORKERS: usize = 4;
+const NUM_TASKS: usize = 250000;
+
+fn process_task(n: usize) -> usize {
+    n * n
+}
+
+struct TaskQueue {
+    queue: VecDeque<usize>,
+    done: bool,
+}
+
+pub fn worker_pool_processing() {
+    let queue = Arc::new((Mutex::new(TaskQueue { queue: VecDeque::new(), done: false }), Condvar::new()));
+    let results = Arc::new(Mutex::new(Vec::with_capacity(NUM_TASKS)));
+    let mut handles = Vec::new();
+    
+    for _ in 0..NUM_WORKERS {
+        let queue = Arc::clone(&queue);
+        let results = Arc::clone(&results);
+        handles.push(thread::spawn(move || {
+            let mut local_results = Vec::new(); // Thread-local storage
+            let process_task = |n: usize| -> usize { n * n };
+            loop {
+                let task = {
+                    let (lock, cond) = &*queue;
+                    let mut queue = lock.lock().unwrap();
+                    while queue.queue.is_empty() && !queue.done {
+                        queue = cond.wait(queue).unwrap();
+                    }
+                    if queue.queue.is_empty() && queue.done {
+                        break;
+                    }
+                    queue.queue.pop_front()
+                };
+                
+                if let Some(task) = task {
+                    local_results.push(process_task(task));
+                }
+            }
+            
+            // Merge local results into global results
+            let mut global_results = results.lock().unwrap();
+            global_results.extend(local_results);
+        }));
+    }
+    
+    {
+        let (lock, cond) = &*queue;
+        let mut queue = lock.lock().unwrap();
+        for i in 0..NUM_TASKS {
+            queue.queue.push_back(i);
+        }
+        cond.notify_all();
+    }
+    
+    {
+        let (lock, cond) = &*queue;
+        let mut queue = lock.lock().unwrap();
+        queue.done = true;
+        cond.notify_all();
+    }
+    
+    for handle in handles {
+        handle.join().unwrap();
+    }
 }

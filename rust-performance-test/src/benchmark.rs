@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rust_performance_tets::{basic_sort, closure_operation, iterators, json_parser::{serialize_json, JsonParser, JsonValue}, memory_allocation_and_management, parse_http_request, parse_http_request_optimized};
+use rust_performance_tets::{basic_sort, closure_operation, iterators, json_parser::{serialize_json, JsonParser, JsonValue}, memory_allocation_and_management, parse_http_request, parse_http_request_optimized, worker_pool_processing};
 
 fn sorting_benchmark(c: &mut Criterion) {
     c.bench_function("Sorting algorithm", |b| b.iter(|| basic_sort(black_box(20))));
@@ -15,6 +15,10 @@ fn memory_management_benchmark(c: &mut Criterion) {
 
 fn iterators_benchmark(c: &mut Criterion) {
     c.bench_function("Iterators", |b| b.iter(|| iterators(black_box(20))));
+}
+
+fn worker_pool_processing_benchmark(c: &mut Criterion) {
+    c.bench_function("Worker pool processing", |b| b.iter(|| worker_pool_processing()));
 }
 
 fn benchmark_parse_http_request(c: &mut Criterion) {
@@ -42,7 +46,6 @@ fn benchmark_parse_http_request_optimized(c: &mut Criterion) {
         b.iter(|| parse_http_request_optimized(black_box(raw_request)))
     });
 }
-
 
 fn bench_json_parsing(c: &mut Criterion) {
     let json_input = r#"{
@@ -97,5 +100,5 @@ fn bench_json_parsing(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, sorting_benchmark, closure_benchmark, memory_management_benchmark, iterators_benchmark, benchmark_parse_http_request, benchmark_parse_http_request_optimized, bench_json_parsing);
+criterion_group!(benches, sorting_benchmark, closure_benchmark, memory_management_benchmark, iterators_benchmark, benchmark_parse_http_request, benchmark_parse_http_request_optimized, bench_json_parsing, worker_pool_processing_benchmark);
 criterion_main!(benches);
