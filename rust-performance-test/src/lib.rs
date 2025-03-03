@@ -12,6 +12,33 @@ pub struct HttpRequest {
 
 #[inline]
 pub fn parse_http_request(request: &str) -> HttpRequest {
+    let mut lines = request.lines();
+    let mut headers = HashMap::new();
+    let mut body = String::new();
+
+    let request_line = lines.next().unwrap_or("");
+    let parts: Vec<&str> = request_line.split_whitespace().collect();
+    let (method, path) = (parts.get(0).unwrap_or(&""), parts.get(1).unwrap_or(&""));
+
+    for line in &mut lines {
+        if line.is_empty() { break; }
+        if let Some((key, value)) = line.split_once(": ") {
+            headers.insert(key.to_string(), value.to_string());
+        }
+    }
+
+    body = lines.collect::<Vec<&str>>().join("\n");
+
+    HttpRequest {
+        _method: method.to_string(),
+        _path: path.to_string(),
+        _headers: headers,
+        _body: body,
+    }
+}
+
+#[inline]
+pub fn parse_http_request_optimized(request: &str) -> HttpRequest {
     let mut headers = HashMap::new();
 
     // Locate the end of the request line

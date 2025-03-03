@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rust_performance_tets::{basic_sort, closure_operation, iterators, json_parser::{serialize_json, JsonParser, JsonValue}, memory_allocation_and_management, parse_http_request};
+use rust_performance_tets::{basic_sort, closure_operation, iterators, json_parser::{serialize_json, JsonParser, JsonValue}, memory_allocation_and_management, parse_http_request, parse_http_request_optimized};
 
 fn sorting_benchmark(c: &mut Criterion) {
     c.bench_function("Sorting algorithm", |b| b.iter(|| basic_sort(black_box(20))));
@@ -27,6 +27,19 @@ fn benchmark_parse_http_request(c: &mut Criterion) {
 
     c.bench_function("Http Request", |b| {
         b.iter(|| parse_http_request(black_box(raw_request)))
+    });
+}
+
+fn benchmark_parse_http_request_optimized(c: &mut Criterion) {
+    let raw_request = "POST /submit HTTP/1.1\n\
+                       Host: example.com\n\
+                       Content-Length: 13\n\
+                       Content-Type: text/plain\n\
+                       \n\
+                       Hello, world!";
+
+    c.bench_function("Http Request optimized", |b| {
+        b.iter(|| parse_http_request_optimized(black_box(raw_request)))
     });
 }
 
@@ -84,5 +97,5 @@ fn bench_json_parsing(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, sorting_benchmark, closure_benchmark, memory_management_benchmark, iterators_benchmark, benchmark_parse_http_request, bench_json_parsing);
+criterion_group!(benches, sorting_benchmark, closure_benchmark, memory_management_benchmark, iterators_benchmark, benchmark_parse_http_request, benchmark_parse_http_request_optimized, bench_json_parsing);
 criterion_main!(benches);

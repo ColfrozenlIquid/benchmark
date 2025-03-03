@@ -60,6 +60,30 @@ inline void iterators(benchmark::State& state, size_t n) {
 }
 
 inline HttpRequest parseHttpRequest(const std::string& request) {
+    std::istringstream stream(request);
+    HttpRequest req;
+    std::string line;
+
+    if (std::getline(stream, line)) {
+        std::istringstream lineStream(line);
+        lineStream >> req.method >> req.path;
+    }
+
+    while (std::getline(stream, line) && line != "\r") {
+        std::istringstream headerStream(line);
+        std::string key, value;
+        if (std::getline(headerStream, key, ':')) {
+            std::getline(headerStream >> std::ws, value);
+            req.headers[key] = value;
+        }
+    }
+
+    req.body.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+
+    return req;
+}
+
+inline HttpRequest parseHttpRequestOptimized(const std::string& request) {
     HttpRequest req;
     std::string_view sv(request);
 
@@ -134,6 +158,20 @@ inline static void BenchmarkParseHttpRequest(benchmark::State& state) {
     }
 }
 
+inline static void BenchmarkParseHttpRequestOptimized(benchmark::State& state) {
+    std::string rawRequest =
+        "POST /submit HTTP/1.1\r\n"
+        "Host: example.com\r\n"
+        "Content-Length: 13\r\n"
+        "Content-Type: text/plain\r\n"
+        "\r\n"
+        "Hello, world!";
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(parseHttpRequestOptimized(rawRequest));
+    }
+}
+
 // Benchmark function that runs the JSON parsing, modification, and serialization
 inline static void BenchmarkParseJson(benchmark::State& state) {
     // Use the argument (e.g., 20) to run multiple iterations per benchmark loop.
@@ -204,5 +242,6 @@ BENCHMARK_CAPTURE(closure_operation, test, 20);
 BENCHMARK_CAPTURE(memory_allocation_and_management, test, 20);
 BENCHMARK_CAPTURE(iterators, test, 20);
 BENCHMARK(BenchmarkParseHttpRequest)->Arg(20);
+BENCHMARK(BenchmarkParseHttpRequestOptimized)->Arg(20);
 BENCHMARK(BenchmarkParseJson)->Arg(20);
 BENCHMARK_MAIN();
