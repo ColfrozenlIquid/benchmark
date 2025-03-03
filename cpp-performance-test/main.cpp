@@ -87,14 +87,11 @@ inline HttpRequest parseHttpRequestOptimized(const std::string& request) {
     HttpRequest req;
     std::string_view sv(request);
 
-    // Parse request line (first line)
     size_t pos = sv.find('\n');
     std::string_view request_line = (pos == std::string_view::npos) ? sv : sv.substr(0, pos);
-    // Remove trailing '\r' if present
     if (!request_line.empty() && request_line.back() == '\r')
         request_line.remove_suffix(1);
 
-    // Extract method and path manually (split by whitespace)
     size_t method_end = request_line.find(' ');
     if (method_end != std::string_view::npos) {
         req.method = std::string(request_line.substr(0, method_end));
@@ -106,11 +103,9 @@ inline HttpRequest parseHttpRequestOptimized(const std::string& request) {
             req.path = std::string(request_line.substr(path_start, path_end - path_start));
     }
 
-    // Move past the request line
     if (pos != std::string_view::npos)
         sv.remove_prefix(pos + 1);
 
-    // Parse headers until an empty line is encountered
     while (true) {
         size_t newline_pos = sv.find('\n');
         std::string_view line;
@@ -122,15 +117,12 @@ inline HttpRequest parseHttpRequestOptimized(const std::string& request) {
             sv.remove_prefix(newline_pos + 1);
         }
 
-        // Remove trailing '\r' if present
         if (!line.empty() && line.back() == '\r')
             line.remove_suffix(1);
 
-        // Empty line indicates end of headers
         if (line.empty())
             break;
 
-        // Find the separator ": "
         size_t colon = line.find(": ");
         if (colon != std::string_view::npos) {
             std::string key(line.substr(0, colon));
@@ -139,7 +131,6 @@ inline HttpRequest parseHttpRequestOptimized(const std::string& request) {
         }
     }
 
-    // The rest is the body
     req.body = std::string(sv);
     return req;
 }

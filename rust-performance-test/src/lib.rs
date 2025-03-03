@@ -41,15 +41,12 @@ pub fn parse_http_request(request: &str) -> HttpRequest {
 pub fn parse_http_request_optimized(request: &str) -> HttpRequest {
     let mut headers = HashMap::new();
 
-    // Locate the end of the request line
     let newline_pos = request.find('\n').unwrap_or(request.len());
     let mut request_line = &request[..newline_pos];
-    // Trim a trailing '\r', if present
     if request_line.ends_with('\r') {
         request_line = &request_line[..request_line.len() - 1];
     }
 
-    // Manually extract method and path from the request line.
     let method_end = request_line.find(' ').unwrap_or(request_line.len());
     let method = &request_line[..method_end];
 
@@ -60,26 +57,21 @@ pub fn parse_http_request_optimized(request: &str) -> HttpRequest {
         .unwrap_or(request_line.len());
     let path = &request_line[path_start..path_end];
 
-    // Move position past the request line (including newline)
     let mut pos = newline_pos + 1;
     let len = request.len();
 
-    // Parse headers: iterate until an empty line is encountered.
     while pos < len {
         let line_end = request[pos..].find('\n').map(|i| pos + i).unwrap_or(len);
         let mut line = &request[pos..line_end];
-        // Remove trailing '\r' if it exists
         if line.ends_with('\r') {
             line = &line[..line.len() - 1];
         }
-        pos = line_end + 1; // advance to next line
+        pos = line_end + 1;
 
-        // An empty line signals the end of headers.
         if line.is_empty() {
             break;
         }
 
-        // Look for the header delimiter ": "
         if let Some(colon) = line.find(": ") {
             let key = &line[..colon];
             let value = &line[colon + 2..];
@@ -87,7 +79,6 @@ pub fn parse_http_request_optimized(request: &str) -> HttpRequest {
         }
     }
 
-    // The remainder of the request is the body.
     let body = &request[pos..];
 
     HttpRequest {
